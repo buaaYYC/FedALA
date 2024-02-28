@@ -82,22 +82,24 @@ class ALA:
         if torch.sum(params_g[0] - params[0]) == 0:
             return
 
-        # preserve all the updates in the lower layers
+        # preserve all the updates in the lower layers（只更新全局前几层给--客户端参数）
+        # 1. 局部模型前五层参数 更新为 全局模型（前5层）参数 
         for param, param_g in zip(params[:-self.layer_idx], params_g[:-self.layer_idx]):
             param.data = param_g.data.clone()
 
 
         # temp local model only for weight learning
+        # 2. 定义一个临时局部模型，主要用来学习权重（确定合并中全局模型占比）
         model_t = copy.deepcopy(local_model)
         params_t = list(model_t.parameters())
 
         # only consider higher layers
-        params_p = params[-self.layer_idx:]
-        params_gp = params_g[-self.layer_idx:]
-        params_tp = params_t[-self.layer_idx:]
+        params_p = params[-self.layer_idx:] # 局部的后几层模型参数
+        params_gp = params_g[-self.layer_idx:] # 全局的后几层模型参数
+        params_tp = params_t[-self.layer_idx:] # 临时局部的后几层模型参数
 
         # frozen the lower layers to reduce computational cost in Pytorch
-        for param in params_t[:-self.layer_idx]:
+        for param in params_t[:-self.layer_idx]: #临时模型参数的前5层不用更新
             param.requires_grad = False
 
         # used to obtain the gradient of higher layers
@@ -105,8 +107,8 @@ class ALA:
         optimizer = torch.optim.SGD(params_tp, lr=0)
 
         # initialize the weight to all ones in the beginning
-        if self.weights == None:
-            self.weights = [torch.ones_like(param.data).to(self.device) for param in params_p]
+        if self.weights == None: #给所有参数初始化一个权重值（这个权重不是模型参数，是模型占的比例）
+            self.weights = [torch.ones_like(param.data).to(self.device) for param in params_p] ## 使用torch.ones_like创建形状相同，所有元素值为1的张量
 
         # initialize the higher layers in the temp local model
         for param_t, param, param_g, weight in zip(params_tp, params_p, params_gp,

@@ -41,15 +41,15 @@ class FedALA(object):
     def train(self):
         for i in range(self.global_rounds+1):
             s_t = time.time()
-            self.selected_clients = self.select_clients()
-            self.send_models()
+            self.selected_clients = self.select_clients() # 选择客户端，返回客户端列表
+            self.send_models() #通过全局模型初始化
 
-            if i%self.eval_gap == 0:
+            if i%self.eval_gap == 0: # 达到固定的间隔进行评估一次
                 print(f"\n-------------Round number: {i}-------------")
                 print("\nEvaluate global model")
                 self.evaluate()
 
-            for client in self.selected_clients:
+            for client in self.selected_clients: # 客户端开始训练
                 client.train()
 
             # threads = [Thread(target=client.train)
@@ -58,9 +58,9 @@ class FedALA(object):
             # [t.join() for t in threads]
 
             self.receive_models()
-            self.aggregate_parameters()
+            self.aggregate_parameters() # 加权参数求和
 
-            self.Budget.append(time.time() - s_t)
+            self.Budget.append(time.time() - s_t) # 耗时记录
             print('-'*50, self.Budget[-1])
 
         print("\nBest global accuracy.")
@@ -103,7 +103,7 @@ class FedALA(object):
         self.uploaded_weights = []
         self.uploaded_ids = []
         self.uploaded_models = []
-        for client in self.selected_clients:
+        for client in self.selected_clients: # 将各个客户端的权重、id、模型都存放起来
             self.uploaded_weights.append(client.train_samples / active_train_samples)
             self.uploaded_ids.append(client.id)
             self.uploaded_models.append(client.model)
